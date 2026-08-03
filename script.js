@@ -280,7 +280,11 @@ function createMines(count) {
     mine.textContent = '💣';
     placeEntity(mine);
     gameArea.appendChild(mine);
-    state.moving.push({ el: mine, dx: 2 + i, dy: 1 + (i % 3) });
+    state.moving.push({
+      el: mine,
+      dx: 0.6 + i * 0.2,
+      dy: 0.5 + (i % 3) * 0.2,
+    });
   }
 }
 

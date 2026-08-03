@@ -10,16 +10,21 @@
 body {
   margin: 0;
   min-height: 100vh;
+  height: 100vh;
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   justify-content: center;
-  padding: 12px 8px 18px;
+  padding: 0;
   background: linear-gradient(180deg, #f7f0ff 0%, #e8d8ff 100%);
 }
 .game-shell {
   width: min(100%, 760px);
   max-width: 760px;
-  padding: 12px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 12px 10px 16px;
 }
 .screen {
   display: none;
@@ -99,7 +104,8 @@ p {
 }
 .level-background {
   position: relative;
-  min-height: 360px;
+  min-height: calc(100vh - 220px);
+  max-height: calc(100vh - 180px);
   border-radius: 24px;
   overflow: hidden;
   border: 2px solid rgba(142,112,235,.2);
@@ -115,11 +121,11 @@ p {
   border-radius: 18px;
   font-weight: 700;
   border: 1px solid rgba(141,115,255,.18);
+  z-index: 10;
 }
 .game-area {
   position: relative;
-  min-height: 340px;
-  height: 100%;
+  min-height: calc(100vh - 320px);
   width: 100%;
   margin-top: 70px;
   overflow: hidden;
@@ -251,15 +257,16 @@ p {
   color: #3c2170;
 }
 @media (max-width: 640px) {
-  .game-shell { padding: 10px; }
+  body { padding: 0; }
+  .game-shell { padding: 8px 8px 12px; }
   .card { padding: 16px; }
   .avatar-grid { grid-template-columns: 1fr; }
   .avatar-button { padding: 12px; }
   .hud { flex-direction: column; gap: 8px; }
   .hud div { font-size: 13px; }
-  .level-background { min-height: 280px; }
+  .level-background { min-height: calc(100vh - 240px); max-height: calc(100vh - 160px); }
   .photo-placeholder { font-size: 13px; padding: 10px 12px; }
-  .game-area { min-height: 240px; margin-top: 60px; }
+  .game-area { min-height: calc(100vh - 360px); margin-top: 60px; }
   .player { width: 58px; height: 58px; font-size: 20px; }
   .photo-block { width: 86px; height: 86px; font-size: 10px; padding: 8px; }
   .mine { width: 44px; height: 44px; font-size: 18px; }
