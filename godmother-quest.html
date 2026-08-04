@@ -139,6 +139,7 @@
     <div id="hud">
       <div class="pill" id="hudLevel">Level 1</div>
       <div class="pill" id="hudPhotos">📷 0/4</div>
+      <div class="pill" id="muteBtn" style="pointer-events:auto; cursor:pointer;">🔊</div>
     </div>
 
     <!-- CHARACTER SELECT -->
@@ -227,6 +228,14 @@ const BRIDE_SIGNOFF = "Your Beyoncé";
 const PHOTO_URLS = {
   p1:"", p2:"", p3:"", p4:"",   // Level 1 memories
   p5:"", p6:"", p7:"", p8:""    // Level 2 memories
+};
+
+// Background music for each level. Leave "" for no music on that level.
+// Works with local files (e.g. "musica/nivel1.mp3") or full web links (mp3/ogg).
+const MUSIC_URLS = {
+  level1:"",
+  level2:"",
+  level3:""
 };
 const PHOTO_CAPTIONS = {
   p1:"The day we met", p2:"Girls' trip 💕", p3:"Late night laughs",
@@ -402,7 +411,7 @@ const LEVELS = [
   },
   { // LEVEL 2
     name:'Level 2 · Best Friends Forever',
-    intro:'A few more jumps to go — you\\'re almost ready for the big reveal!',
+    intro:"A few more jumps to go — you're almost ready for the big reveal!",
     bg:['#c9e7ff','#e8f6ff'],
     width:1800,
     platforms:[
@@ -434,6 +443,31 @@ let levelIndex = 0;
 let level = null;
 let player, camX, keys, photosCollected, heartsCollected, frame, gameRunning, glow;
 
+/* ---------- MUSIC ---------- */
+const bgMusic = new Audio();
+bgMusic.loop = true;
+bgMusic.volume = 0.55;
+let musicMuted = false;
+
+function playLevelMusic(i){
+  const key = 'level' + (i+1);
+  const url = MUSIC_URLS[key];
+  if(!url){ bgMusic.pause(); return; }
+  if(!bgMusic.src.endsWith(url)){
+    bgMusic.src = url;
+  }
+  if(!musicMuted){
+    bgMusic.play().catch(()=>{ /* browser blocked autoplay, will retry on next tap */ });
+  }
+}
+
+document.getElementById('muteBtn').addEventListener('click', ()=>{
+  musicMuted = !musicMuted;
+  document.getElementById('muteBtn').textContent = musicMuted ? '🔇' : '🔊';
+  if(musicMuted) bgMusic.pause();
+  else bgMusic.play().catch(()=>{});
+});
+
 function startLevel(i){
   levelIndex = i;
   level = LEVELS[i];
@@ -454,6 +488,7 @@ function startLevel(i){
 
 document.getElementById('introBtn').addEventListener('click', ()=>{
   document.getElementById('introOverlay').classList.add('hidden');
+  playLevelMusic(levelIndex);
   gameRunning = true;
   requestAnimationFrame(loop);
 });
@@ -609,6 +644,7 @@ document.getElementById('yesBtn').addEventListener('click', ()=>{
   launchConfetti();
 });
 document.getElementById('restartBtn').addEventListener('click', ()=>{
+  bgMusic.pause();
   document.getElementById('finaleOverlay').classList.add('hidden');
   document.getElementById('startOverlay').classList.remove('hidden');
   document.querySelectorAll('.charCard').forEach(x=>x.classList.remove('selected'));
