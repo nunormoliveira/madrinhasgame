@@ -557,6 +557,22 @@ function update(){
   player.x += player.vx;
   player.x = Math.max(0, Math.min(level.width - player.w, player.x));
 
+  // Horizontal collision: block movement into the side of a platform/mountain
+  // (must be jumped over, not walked through)
+  if(player.vx !== 0){
+    const pTop = player.y - player.h;
+    const pBottom = player.y;
+    for(const p of level.platforms){
+      const solidTop = p.y;
+      const overlapY = pBottom > solidTop + 1 && pTop < H + 50;
+      if(!overlapY) continue;
+      const overlapX = player.x + player.w > p.x && player.x < p.x + p.w;
+      if(!overlapX) continue;
+      if(player.vx > 0) player.x = p.x - player.w;
+      else player.x = p.x + p.w;
+    }
+  }
+
   const prevBottom = player.y;
   player.y += player.vy;
 
