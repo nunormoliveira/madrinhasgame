@@ -10,6 +10,9 @@ const scoreEl = document.getElementById('score');
 const photoCaption = document.getElementById('photo-caption');
 const gameArea = document.getElementById('game-area');
 const playerEl = document.getElementById('player');
+const worldEl = document.createElement('div');
+worldEl.id = 'world';
+worldEl.className = 'world';
 const messageTitle = document.getElementById('message-title');
 const messageText = document.getElementById('message-text');
 const messageActions = document.getElementById('message-actions');
@@ -20,13 +23,26 @@ let state = {
   level: 1,
   score: 0,
   lives: 3,
-  collected: 0,
-  target: 5,
-  items: [],
-  moving: [],
-  interval: null,
+  playerX: 20,
+  playerY: 0,
+  playerVy: 0,
+  onGround: true,
+  isHurt: false,
+  spikes: [],
+  movingSpikes: [],
+  walls: [],
+  springs: [],
+  goal: null,
+  levelWidth: 800,
+  cameraOffset: 0,
+  moveLeft: false,
+  moveSpeed: 5.0,
+  gravity: 1.2,
+  jumpStrength: 22,
+  maxFallSpeed: 22,
+  moveRight: false,
+  wantJump: false,
   animationId: null,
-  touchTimer: null,
   audio: {
     context: null,
     gainNode: null,
@@ -47,21 +63,42 @@ characterButtons.forEach(button => {
 const controls = document.querySelectorAll('.controls button');
 controls.forEach(button => {
   button.addEventListener('click', () => movePlayer(button.dataset.action));
+  button.addEventListener('pointerdown', () => setControl(button.dataset.action, true));
+  button.addEventListener('pointerup', () => setControl(button.dataset.action, false));
+  button.addEventListener('pointerleave', () => setControl(button.dataset.action, false));
 });
 
 document.addEventListener('keydown', event => {
   const keyMap = {
     ArrowUp: 'up',
-    ArrowDown: 'down',
     ArrowLeft: 'left',
     ArrowRight: 'right',
   };
   const action = keyMap[event.key];
   if (action) {
     event.preventDefault();
-    movePlayer(action);
+    setControl(action, true);
   }
 });
+
+document.addEventListener('keyup', event => {
+  const keyMap = {
+    ArrowUp: 'up',
+    ArrowLeft: 'left',
+    ArrowRight: 'right',
+  };
+  const action = keyMap[event.key];
+  if (action) {
+    event.preventDefault();
+    setControl(action, false);
+  }
+});
+
+function setControl(action, active) {
+  if (action === 'left') state.moveLeft = active;
+  if (action === 'right') state.moveRight = active;
+  if (action === 'up') state.wantJump = active;
+}
 
 function showScreen(name) {
   Object.values(screens).forEach(screen => screen.classList.remove('active'));
@@ -74,13 +111,9 @@ function startGame(name) {
   state.level = 1;
   state.score = 0;
   state.lives = 3;
-  state.collected = 0;
-  state.target = 5;
+  state.isHurt = false;
   updateHud();
   showScreen('game');
-  gameArea.innerHTML = '';
-  gameArea.appendChild(playerEl);
-  resetPlayer();
   loadLevel();
 }
 
@@ -147,10 +180,10 @@ function getMusicSequence(level) {
       ];
     case 2:
       return [
-        { freq: 523, duration: 0.25, wave: 'square' },
-        { freq: 494, duration: 0.25, wave: 'square' },
-        { freq: 440, duration: 0.25, wave: 'square' },
-        { freq: 494, duration: 0.25, wave: 'square' },
+        { freq: 523, duration: 0.3, wave: 'square' },
+        { freq: 494, duration: 0.3, wave: 'square' },
+        { freq: 440, duration: 0.3, wave: 'square' },
+        { freq: 494, duration: 0.3, wave: 'square' },
       ];
     case 3:
       return [
@@ -158,13 +191,6 @@ function getMusicSequence(level) {
         { freq: 392, duration: 0.3, wave: 'sine' },
         { freq: 440, duration: 0.3, wave: 'sine' },
         { freq: 392, duration: 0.3, wave: 'sine' },
-      ];
-    case 4:
-      return [
-        { freq: 262, duration: 0.4, wave: 'sawtooth' },
-        { freq: 294, duration: 0.4, wave: 'sawtooth' },
-        { freq: 330, duration: 0.4, wave: 'sawtooth' },
-        { freq: 392, duration: 0.4, wave: 'sawtooth' },
       ];
     default:
       return [];
@@ -185,9 +211,347 @@ const playerPilot = {
   Carolina: '🐰',
 };
 
+function loadLevel() {
+  if (state.animationId) {
+    cancelAnimationFrame(state.animationId);
+    state.animationId = null;
+  }
+
+  state.spikes = [];
+  state.movingSpikes = [];
+  state.walls = [];
+  state.springs = [];
+  state.goal = null;
+  state.playerX = 20;
+  state.playerY = 0;
+  state.playerVy = 0;
+  state.onGround = false;
+  state.isHurt = false;
+
+  gameArea.innerHTML = '';
+  worldEl.innerHTML = '';
+  gameArea.appendChild(worldEl);
+  gameArea.appendChild(playerEl);
+
+  const levelInfo = getLevelConfig(state.level);
+  state.levelWidth = Math.max(800, levelInfo.goalX + 140);
+  worldEl.style.width = `${state.levelWidth}px`;
+  worldEl.style.transform = 'translateX(0)';
+
+  photoCaption.textContent = levelInfo.label;
+  updateHud();
+  playLevelMusic(state.level);
+
+  createPlatform();
+  if (levelInfo.posterText) createPoster(levelInfo.posterX, levelInfo.posterText);
+  if (levelInfo.walls) createWalls(levelInfo.walls);
+  if (levelInfo.springs) createSprings(levelInfo.springs);
+  if (levelInfo.movingSpikes) createMovingSpikes(levelInfo.movingSpikes);
+  if (levelInfo.hallOfFame) createHallOfFameDecor(levelInfo.goalX, levelInfo.photoFrames);
+  createGoal(levelInfo.goalX);
+  createSpikes(levelInfo.spikes);
+  resetPlayer();
+
+  state.animationId = requestAnimationFrame(gameLoop);
+}
+
+function createPoster(x, text) {
+  const poster = document.createElement('div');
+  poster.className = 'poster';
+  poster.style.left = `${x}px`;
+  poster.style.bottom = '120px';
+  const posterText = document.createElement('div');
+  posterText.className = 'poster-text';
+  posterText.textContent = text;
+  poster.appendChild(posterText);
+  worldEl.appendChild(poster);
+}
+
+function createHallOfFameDecor(goalX, frames) {
+  const carpet = document.createElement('div');
+  carpet.className = 'red-carpet';
+  carpet.style.left = `${Math.max(0, goalX - 140)}px`;
+  carpet.style.width = '280px';
+  worldEl.appendChild(carpet);
+
+  frames.forEach(x => {
+    const frame = document.createElement('div');
+    frame.className = 'photo-frame';
+    frame.style.left = `${x}px`;
+    frame.style.bottom = '140px';
+    worldEl.appendChild(frame);
+  });
+
+  const bride = document.createElement('div');
+  bride.className = 'bride';
+  bride.textContent = '👰';
+  bride.style.left = `${goalX + 60}px`;
+  bride.style.bottom = '28px';
+  worldEl.appendChild(bride);
+}
+
+function getLevelConfig(level) {
+  const labels = {
+    1: `Nível 1: Humm, o que estará aqui à frente?`,
+    2: `Nível 2: mais saltos, mais ouriços`,
+    3: `Nível 3: Hall of Fame da noiva`,
+  };
+  const spikes = {
+    1: [140, 360, 580],
+    2: [120, 340, 560, 780],
+    3: [140, 360, 580, 800, 1020],
+  };
+  const goals = {
+    1: 720,
+    2: 940,
+    3: 1200,
+  };
+  const walls = {
+    1: [],
+    2: [
+      { x: 220, width: 24, height: 84 },
+      { x: 470, width: 24, height: 120 },
+      { x: 760, width: 24, height: 84 },
+    ],
+    3: [
+      { x: 240, width: 24, height: 84 },
+      { x: 520, width: 24, height: 84 },
+      { x: 860, width: 24, height: 120 },
+    ],
+  };
+  const springs = {
+    1: [560],
+    2: [280, 700],
+    3: [340, 980],
+  };
+  const movingSpikes = {
+    1: [],
+    2: [
+      { x: 620, minX: 580, maxX: 700, speed: 0.45 },
+    ],
+    3: [
+      { x: 520, minX: 500, maxX: 620, speed: 0.55 },
+      { x: 900, minX: 860, maxX: 960, speed: 0.45 },
+    ],
+  };
+  return {
+    label: labels[level] || 'Nível extra',
+    spikes: spikes[level] || [180, 360, 540],
+    movingSpikes: movingSpikes[level] || [],
+    walls: walls[level] || [],
+    springs: springs[level] || [],
+    goalX: goals[level] || 700,
+    posterText: level === 1 ? 'Humm... o que estará aqui à frente?' : null,
+    posterX: 260,
+    hallOfFame: level === 3,
+    photoFrames: level === 3 ? [180, 420, 660] : [],
+  };
+}
+
+function createPlatform() {
+  const platform = document.createElement('div');
+  platform.className = 'platform';
+  platform.style.left = '0';
+  platform.style.width = `${state.levelWidth}px`;
+  platform.style.height = '28px';
+  platform.style.bottom = '0';
+  worldEl.appendChild(platform);
+}
+
+function createGoal(x) {
+  const goal = document.createElement('div');
+  goal.className = 'goal';
+  goal.textContent = '✨';
+  goal.style.left = `${x}px`;
+  goal.style.bottom = '36px';
+  worldEl.appendChild(goal);
+  state.goal = goal;
+}
+
+function createSpikes(positions) {
+  positions.forEach(pos => {
+    const spike = document.createElement('div');
+    spike.className = 'spike';
+    spike.textContent = '🦔';
+    spike.style.left = `${pos}px`;
+    spike.style.bottom = '28px';
+    worldEl.appendChild(spike);
+    state.spikes.push(spike);
+  });
+}
+
+function createMovingSpikes(entries) {
+  entries.forEach(entry => {
+    const spike = document.createElement('div');
+    spike.className = 'spike';
+    spike.textContent = '🦔';
+    spike.style.left = `${entry.x}px`;
+    spike.style.bottom = '28px';
+    worldEl.appendChild(spike);
+    state.movingSpikes.push({
+      el: spike,
+      x: entry.x,
+      minX: entry.minX,
+      maxX: entry.maxX,
+      speed: entry.speed,
+      direction: 1,
+    });
+  });
+}
+
+function createWalls(entries) {
+  entries.forEach(entry => {
+    const wall = document.createElement('div');
+    wall.className = 'wall';
+    wall.style.left = `${entry.x}px`;
+    wall.style.width = `${entry.width}px`;
+    wall.style.height = `${entry.height}px`;
+    wall.style.bottom = '28px';
+    worldEl.appendChild(wall);
+    state.walls.push({ el: wall, x: entry.x, width: entry.width, height: entry.height });
+  });
+}
+
+function createSprings(entries) {
+  entries.forEach(x => {
+    const spring = document.createElement('div');
+    spring.className = 'spring';
+    spring.textContent = '⇧';
+    spring.style.left = `${x}px`;
+    spring.style.bottom = '28px';
+    worldEl.appendChild(spring);
+    state.springs.push(spring);
+  });
+}
+
+function movePlayer(direction) {
+  if (direction === 'left') setControl('left', true);
+  if (direction === 'right') setControl('right', true);
+  if (direction === 'up') setControl('up', true);
+}
+
+function gameLoop() {
+  const bounds = gameArea.getBoundingClientRect();
+  const speed = 4.5;
+  const prevX = state.playerX;
+
+  if (state.moveLeft) {
+    state.playerX = Math.max(0, state.playerX - speed);
+  }
+  if (state.moveRight) {
+    state.playerX = Math.min(state.levelWidth - playerEl.offsetWidth, state.playerX + speed);
+  }
+  if (state.wantJump && state.onGround) {
+    state.playerVy = -state.jumpStrength;
+    state.onGround = false;
+    state.wantJump = false;
+  }
+
+  state.playerVy = Math.min(state.playerVy + state.gravity, state.maxFallSpeed);
+  state.playerY += state.playerVy;
+
+  if (state.playerY + playerEl.offsetHeight >= bounds.height - 28) {
+    state.playerY = bounds.height - playerEl.offsetHeight - 28;
+    state.playerVy = 0;
+    state.onGround = true;
+  }
+  if (state.playerY < 0) {
+    state.playerY = 0;
+    state.playerVy = 0;
+  }
+  if (state.playerX < 0) state.playerX = 0;
+  if (state.playerX > state.levelWidth - playerEl.offsetWidth) state.playerX = state.levelWidth - playerEl.offsetWidth;
+
+  updatePlayerPosition();
+  resolveWallCollision(prevX);
+  updateMovingSpikes();
+
+  checkGoalCollision();
+  checkSpringCollision();
+  checkSpikeCollision();
+
+  state.animationId = requestAnimationFrame(gameLoop);
+}
+
+function updateMovingSpikes() {
+  state.movingSpikes.forEach(spike => {
+    spike.x += spike.speed * spike.direction;
+    if (spike.x <= spike.minX || spike.x >= spike.maxX) {
+      spike.direction *= -1;
+      spike.x = Math.min(Math.max(spike.x, spike.minX), spike.maxX);
+    }
+    spike.el.style.left = `${spike.x}px`;
+  });
+}
+
+function resolveWallCollision(prevX) {
+  const dx = state.playerX - prevX;
+  if (dx === 0) return;
+
+  const playerTop = state.playerY;
+  const playerBottom = playerTop + playerEl.offsetHeight;
+  const futureLeft = state.playerX;
+  const futureRight = futureLeft + playerEl.offsetWidth;
+
+  for (const wall of state.walls) {
+    const wallLeft = wall.x;
+    const wallRight = wall.x + wall.width;
+    const wallBottom = 28;
+    const wallTop = wallBottom + wall.height;
+
+    const xOverlap = futureRight > wallLeft && futureLeft < wallRight;
+    const yOverlap = playerBottom > wallBottom && playerTop < wallTop;
+
+    if (xOverlap && yOverlap) {
+      if (dx > 0) {
+        state.playerX = wallLeft - playerEl.offsetWidth;
+      } else {
+        state.playerX = wallRight;
+      }
+      playerEl.style.left = `${state.playerX - state.cameraOffset}px`;
+      break;
+    }
+  }
+}
+
+function checkSpringCollision() {
+  const playerRect = playerEl.getBoundingClientRect();
+  state.springs.forEach(spring => {
+    const springRect = spring.getBoundingClientRect();
+    const horizontalOverlap = playerRect.right > springRect.left + 8 && playerRect.left < springRect.right - 8;
+    const onTop = playerRect.bottom >= springRect.top && playerRect.top < springRect.top;
+    const landing = state.playerVy >= 0;
+    if (horizontalOverlap && onTop && landing) {
+      state.playerY = state.playerY - (playerRect.bottom - springRect.top);
+      state.playerVy = -state.jumpStrength * 1.1;
+      state.onGround = false;
+    }
+  });
+}
+
+function updatePlayerPosition() {
+  updateWorldPosition();
+  playerEl.style.top = `${state.playerY}px`;
+}
+
+function updateWorldPosition() {
+  const bounds = gameArea.getBoundingClientRect();
+  const anchorX = Math.min(bounds.width * 0.4, bounds.width - playerEl.offsetWidth - 20);
+  const maxOffset = Math.max(0, state.levelWidth - bounds.width);
+  state.cameraOffset = Math.min(Math.max(state.playerX - anchorX, 0), maxOffset);
+  worldEl.style.transform = `translateX(${-state.cameraOffset}px)`;
+  const screenX = state.playerX - state.cameraOffset;
+  playerEl.style.left = `${screenX}px`;
+}
+
 function resetPlayer() {
-  playerEl.style.left = '20px';
-  playerEl.style.top = '20px';
+  const bounds = gameArea.getBoundingClientRect();
+  state.playerX = 20;
+  state.playerY = bounds.height - playerEl.offsetHeight - 28;
+  state.playerVy = 0;
+  state.onGround = true;
+  state.isHurt = false;
+  updatePlayerPosition();
   const animal = playerPilot[state.name] || '🐾';
   playerEl.textContent = `🚀${animal}`;
   playerEl.classList.remove('player-nicole', 'player-andreia', 'player-carolina');
@@ -196,307 +560,69 @@ function resetPlayer() {
   }
 }
 
-function loadLevel() {
-  clearInterval(state.interval);
-  if (state.animationId) {
-    cancelAnimationFrame(state.animationId);
-  }
-  state.items = [];
-  state.moving = [];
-  state.collected = 0;
-  gameArea.innerHTML = '';
-  gameArea.appendChild(playerEl);
-
-  const level = state.level;
-  let target = 5;
-  let photoLabel = 'Foto da noiva com a amiga';
-
-  if (level === 1) {
-    photoLabel = `Foto da noiva com ${state.name}`;
-    target = 5;
-  } else if (level === 2) {
-    photoLabel = `Fotos estáticas da noiva com a personagem`;
-    target = 6;
-  } else if (level === 3) {
-    photoLabel = `Hall of Fame: recorde dos momentos com ${state.name}`;
-    target = 0;
-  } else if (level === 4) {
-    photoLabel = `Foto final com a bridezilla da noiva`;
-    target = 0;
-  }
-
-  state.target = target;
-  photoCaption.textContent = photoLabel;
-  updateHud();
-  playLevelMusic(level);
-
-  requestAnimationFrame(() => {
-    if (level === 1) {
-      createPhotoBlocks(3, true);
-      createCollectibles(5);
-      createMines(3);
-    } else if (level === 2) {
-      createPhotoBlocks(4, false);
-      createCollectibles(6);
-      createMines(5);
-    } else if (level === 3) {
-      createHallOfFame();
-    } else if (level === 4) {
-      createBoss();
-    }
-
-    if (state.level < 3) {
-      state.interval = setInterval(moveObstacles, 180);
-      state.animationId = requestAnimationFrame(moveMines);
-    }
-  });
-}
-
-function createCollectibles(count) {
-  for (let i = 0; i < count; i++) {
-    const item = document.createElement('div');
-    item.className = 'collectible';
-    item.textContent = '❤️';
-    placeEntity(item);
-    gameArea.appendChild(item);
-    state.items.push(item);
-  }
-}
-
-function createPhotoBlocks(count, withCharacter) {
-  for (let i = 0; i < count; i++) {
-    const photo = document.createElement('div');
-    photo.className = 'photo-block';
-    photo.textContent = withCharacter ? `${state.name} + Noiva` : `Noiva + ${state.name}`;
-    placeEntity(photo, 110, 110);
-    gameArea.appendChild(photo);
-  }
-}
-
-function createMines(count) {
-  for (let i = 0; i < count; i++) {
-    const mine = document.createElement('div');
-    mine.className = 'mine';
-    mine.textContent = '💣';
-    placeEntity(mine);
-    gameArea.appendChild(mine);
-    state.moving.push({
-      el: mine,
-      dx: 0.6 + i * 0.2,
-      dy: 0.5 + (i % 3) * 0.2,
-    });
-  }
-}
-
-function createHallOfFame() {
-  const captions = Array.from({ length: 4 }, (_, index) => `${state.name} + Noiva ${index + 1}`);
-  captions.forEach((caption, index) => {
-    const card = document.createElement('button');
-    card.className = 'avatar-button';
-    card.innerHTML = `<div class="avatar" style="background: linear-gradient(135deg, #ffd3b6, #ffaaa5);">📸</div><span>${caption}</span>`;
-    card.addEventListener('click', () => nextLevel());
-    card.style.width = '100%';
-    card.style.maxWidth = '220px';
-    card.style.margin = '10px';
-    gameArea.appendChild(card);
-  });
-  const text = document.createElement('p');
-  text.style.width = '100%';
-  text.style.textAlign = 'center';
-  text.style.marginTop = '16px';
-  text.textContent = `Toca numa foto da sua personagem com a noiva para continuar.`;
-  gameArea.appendChild(text);
-}
-
-function createBoss() {
-  const boss = document.createElement('div');
-  boss.className = 'boss';
-  boss.textContent = 'Bridezilla';
-  placeEntity(boss, 100, 100);
-  gameArea.appendChild(boss);
-  state.items.push(boss);
-}
-
-function placeEntity(el) {
-  const bounds = gameArea.getBoundingClientRect();
-  const size = 60;
-  const x = Math.floor(Math.random() * Math.max(1, bounds.width - size));
-  const y = Math.floor(Math.random() * Math.max(1, bounds.height - size));
-  el.style.left = `${x}px`;
-  el.style.top = `${y}px`;
-}
-
-function movePlayer(direction) {
-  const step = 18;
-  const bounds = gameArea.getBoundingClientRect();
-  const rect = playerEl.getBoundingClientRect();
-  const currentX = rect.left - bounds.left;
-  const currentY = rect.top - bounds.top;
-  let x = currentX;
-  let y = currentY;
-  if (direction === 'up') y -= step;
-  if (direction === 'down') y += step;
-  if (direction === 'left') x -= step;
-  if (direction === 'right') x += step;
-  x = Math.max(0, Math.min(bounds.width - rect.width, x));
-  y = Math.max(0, Math.min(bounds.height - rect.height, y));
-  playerEl.style.left = `${x}px`;
-  playerEl.style.top = `${y}px`;
-  checkCollisions();
-}
-
-function moveObstacles() {
-  const bounds = gameArea.getBoundingClientRect();
-  state.moving.forEach(({ el, dx, dy }) => {
-    const rect = el.getBoundingClientRect();
-    let x = rect.left - bounds.left + dx;
-    let y = rect.top - bounds.top + dy;
-    if (x < 0 || x > bounds.width - rect.width) dx *= -1;
-    if (y < 0 || y > bounds.height - rect.height) dy *= -1;
-    state.moving = state.moving.map(item => item.el === el ? { ...item, dx, dy } : item);
-    el.style.left = `${Math.max(0, Math.min(bounds.width - rect.width, x))}px`;
-    el.style.top = `${Math.max(0, Math.min(bounds.height - rect.height, y))}px`;
-  });
-  checkCollisions();
-}
-
-function moveMines() {
-  const bounds = gameArea.getBoundingClientRect();
-  state.moving.forEach(({ el, dx, dy }, index) => {
-    const rect = el.getBoundingClientRect();
-    let x = rect.left - bounds.left + dx;
-    let y = rect.top - bounds.top + dy;
-    if (x < 0 || x > bounds.width - rect.width) dx *= -1;
-    if (y < 0 || y > bounds.height - rect.height) dy *= -1;
-    state.moving = state.moving.map((item, itemIndex) => itemIndex === index ? { ...item, dx, dy } : item);
-    el.style.left = `${Math.max(0, Math.min(bounds.width - rect.width, x))}px`;
-    el.style.top = `${Math.max(0, Math.min(bounds.height - rect.height, y))}px`;
-  });
-  checkCollisions();
-  state.animationId = requestAnimationFrame(moveMines);
-}
-
-function pauseLevel() {
-  if (state.interval) {
-    clearInterval(state.interval);
-    state.interval = null;
-  }
-  if (state.animationId) {
+function checkGoalCollision() {
+  if (!state.goal) return;
+  const playerRect = playerEl.getBoundingClientRect();
+  const goalRect = state.goal.getBoundingClientRect();
+  if (playerRect.right > goalRect.left + 10 && playerRect.left < goalRect.right - 10 && playerRect.bottom > goalRect.top + 10 && playerRect.top < goalRect.bottom - 10) {
+    state.score += 20;
+    updateHud();
     cancelAnimationFrame(state.animationId);
     state.animationId = null;
-  }
-}
-
-function resumeLevel() {
-  if (state.level >= 3) return;
-  if (!state.interval) {
-    state.interval = setInterval(moveObstacles, 180);
-  }
-  if (!state.animationId) {
-    state.animationId = requestAnimationFrame(moveMines);
-  }
-}
-
-function checkCollisions() {
-  const playerRect = playerEl.getBoundingClientRect();
-  const items = Array.from(gameArea.querySelectorAll('.collectible, .mine, .boss'));
-  items.forEach(item => {
-    const rect = item.getBoundingClientRect();
-    if (rect.right > playerRect.left + 8 && rect.left < playerRect.right - 8 && rect.bottom > playerRect.top + 8 && rect.top < playerRect.bottom - 8) {
-      if (item.classList.contains('collectible')) {
-        collectItem(item);
-      } else if (item.classList.contains('mine')) {
-        hitObstacle(item);
-      } else if (item.classList.contains('boss')) {
-        showBridezillaMessage();
-      }
+    if (state.level >= 3) {
+      showMessage('Carta Final', 'Chegaste ao fim! Queres ser minha madrinha?', ['Sim'], () => startGame(state.name));
+    } else {
+      showMessage('Nível concluído', 'Boa! Segue para o próximo nível.', ['Continuar'], nextLevel);
     }
-  });
-}
-
-function collectItem(item) {
-  item.remove();
-  state.collected += 1;
-  state.score += 10;
-  updateHud();
-  if (state.collected >= state.target) {
-    showMessage('Bom trabalho!', `Parabéns ${state.name}, ganhaste o nível ${state.level}!`, ['Continuar'], nextLevel);
   }
 }
 
-function hitObstacle(item) {
-  pauseLevel();
+function checkSpikeCollision() {
+  if (state.isHurt) return;
+  const playerRect = playerEl.getBoundingClientRect();
+  const spikeElements = [...state.spikes, ...state.movingSpikes.map(item => item.el)];
+  for (const spike of spikeElements) {
+    const rect = spike.getBoundingClientRect();
+    if (rect.right > playerRect.left + 10 && rect.left < playerRect.right - 10 && rect.bottom > playerRect.top + 10 && rect.top < playerRect.bottom - 10) {
+      handleHit();
+      break;
+    }
+  }
+}
+
+function handleHit() {
+  state.isHurt = true;
   state.lives -= 1;
   state.score = Math.max(0, state.score - 5);
   updateHud();
+  cancelAnimationFrame(state.animationId);
+  state.animationId = null;
   if (state.lives <= 0) {
-    if (item && item.classList.contains('mine')) {
-      item.style.opacity = '0.4';
-    }
-    showMessage('Perdeste todas as vidas', 'Ficaste sem vidas e o nível vai reiniciar. Tenta outra vez!', ['Reiniciar'], () => restartLevel());
+    showMessage('Perdeste todas as vidas', 'Ficaste sem vidas. Recomeça o jogo!', ['Recomeçar'], () => startGame(state.name));
   } else {
-    if (item && item.classList.contains('mine')) {
-      placeEntity(item);
-    }
-    showMessage('Cuidado!', `Perdeste uma vida. Vidas restantes: ${state.lives}`, ['Continuar'], () => {
+    showMessage('Ai!', `Perdeste uma vida. Vidas restantes: ${state.lives}`, ['Tentar novamente'], () => {
+      state.isHurt = false;
       showScreen('game');
-      resumeLevel();
+      resetPlayer();
+      state.animationId = requestAnimationFrame(gameLoop);
     });
   }
 }
 
 function nextLevel() {
-  clearInterval(state.interval);
-  if (state.animationId) {
-    cancelAnimationFrame(state.animationId);
-  }
   state.level += 1;
-  if (state.level > 4) {
-    showMessage('Convite enviado', 'A noiva está super feliz! O convite foi aceito e agora é festa!', ['Recomeçar'], () => startGame(state.name));
-  } else {
-    updateHud();
-    showScreen('game');
-    gameArea.innerHTML = '';
-    gameArea.appendChild(playerEl);
-    resetPlayer();
-    loadLevel();
-  }
-}
-
-function restartLevel() {
-  clearInterval(state.interval);
-  if (state.animationId) {
-    cancelAnimationFrame(state.animationId);
-  }
-  state.lives = 3;
-  state.collected = 0;
-  state.items = [];
-  state.moving = [];
   updateHud();
   showScreen('game');
-  gameArea.innerHTML = '';
-  gameArea.appendChild(playerEl);
-  resetPlayer();
   loadLevel();
 }
 
-function resumeLevel() {
-  if (state.level >= 3) return;
-  if (!state.interval) {
-    state.interval = setInterval(moveObstacles, 180);
-  }
-  if (!state.animationId) {
-    state.animationId = requestAnimationFrame(moveMines);
-  }
-}
-
-function showBridezillaMessage() {
-  clearInterval(state.interval);
-  showMessage('A bridezilla apareceu!', 'A noiva pergunta: Aceitas ser madrinha de casamento?', ['Sim', 'Mais tarde'], [acceptInvitation, () => nextLevel()]);
-}
-
-function acceptInvitation() {
-  showMessage('Sim!', 'A noiva ficou contente! Bora lá para a festa e para o amor.', ['Recomeçar'], () => startGame(state.name));
+function restartLevel() {
+  showScreen('game');
+  state.lives = 3;
+  state.score = 0;
+  state.isHurt = false;
+  updateHud();
+  loadLevel();
 }
 
 function showMessage(title, text, buttons, actions) {
