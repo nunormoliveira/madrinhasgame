@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Will You Be My Godmother? 💍</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --gold:#d4af37;
+    --gold-light:#f4e4bc;
+    --blush:#ffd6e8;
+    --deep:#3a1c1c;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:linear-gradient(160deg,#2b0f1a,#5c1a2b 50%,#2b0f1a);
+    font-family:'Poppins',sans-serif; color:#fff;
+    overflow:hidden; touch-action:none;
+  }
+  #app{
+    max-width:520px; margin:0 auto; height:100%;
+    display:flex; flex-direction:column; align-items:center;
+    justify-content:flex-start; position:relative;
+    padding:10px; min-height:100vh;
+  }
+  h1.title{
+    font-family:'Playfair Display',serif; font-size:1.4rem; text-align:center;
+    margin:6px 0 2px; color:var(--gold-light);
+    text-shadow:0 0 12px rgba(212,175,55,.6);
+  }
+  .subtitle{ font-size:.75rem; opacity:.8; text-align:center; margin-bottom:8px;}
+  #canvasWrap{
+    position:relative; width:100%; max-width:480px;
+    border-radius:14px; overflow:hidden;
+    border:3px solid var(--gold);
+    box-shadow:0 0 25px rgba(212,175,55,.45), inset 0 0 20px rgba(0,0,0,.4);
+  }
+  canvas{ display:block; width:100%; height:auto; background:#87ceeb; }
+  #hud{
+    position:absolute; top:8px; left:8px; right:8px;
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:.7rem; font-weight:600; pointer-events:none;
+    text-shadow:0 1px 3px rgba(0,0,0,.7);
+  }
+  #hud .pill{
+    background:rgba(0,0,0,.45); border:1px solid rgba(212,175,55,.6);
+    padding:4px 10px; border-radius:20px;
+  }
+  #controls{
+    display:flex; justify-content:space-between; align-items:center;
+    width:100%; max-width:480px; margin-top:14px; padding:0 6px;
+  }
+  .dpad{ display:flex; gap:10px; }
+  .btn{
+    width:64px; height:64px; border-radius:50%;
+    background:linear-gradient(145deg,#7a2340,#4a1428);
+    border:2px solid var(--gold);
+    color:var(--gold-light); font-size:1.6rem;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 0 #2b0c1a, 0 6px 10px rgba(0,0,0,.4);
+  }
+  .btn:active{ transform:translateY(3px); box-shadow:0 1px 0 #2b0c1a; }
+  .btn.jump{
+    width:78px; height:78px; font-size:1.9rem;
+    background:linear-gradient(145deg,var(--gold),#a6791f);
+    color:#3a1c1c; border-color:#fff4d6;
+  }
+  .hidden{ display:none !important; }
+  .overlay{
+    position:absolute; inset:0; z-index:20;
+    background:rgba(15,4,10,.88);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:20px; text-align:center; gap:14px; border-radius:12px;
+  }
+  .card{
+    background:linear-gradient(160deg,#fff8ec,#f4e4bc);
+    color:#3a1c1c; border-radius:16px; padding:20px 18px;
+    width:100%; max-width:380px;
+    box-shadow:0 10px 30px rgba(0,0,0,.5);
+    border:3px solid var(--gold);
+  }
+  .card h2{ font-family:'Playfair Display',serif; margin:0 0 8px; font-size:1.3rem;}
+  .card p{ font-size:.85rem; line-height:1.4; margin:6px 0 14px;}
+  .charRow{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+  .charCard{
+    background:#fff; border:3px solid transparent; border-radius:12px;
+    padding:10px 8px; width:100px; cursor:pointer;
+    transition:transform .15s, border-color .15s;
+  }
+  .charCard:active, .charCard.selected{ border-color:var(--gold); transform:scale(1.05); }
+  .charCard canvas{ width:100%; height:90px; }
+  .charCard span{ display:block; margin-top:4px; font-weight:600; font-size:.8rem; color:#3a1c1c;}
+  .goldBtn{
+    background:linear-gradient(145deg,#e8c766,var(--gold));
+    border:none; color:#3a1c1c; font-weight:700; font-size:.95rem;
+    padding:12px 26px; border-radius:30px; cursor:pointer;
+    box-shadow:0 5px 0 #a6791f;
+  }
+  .goldBtn:active{ transform:translateY(3px); box-shadow:0 2px 0 #a6791f; }
+  .polaroid{
+    background:#fff; padding:10px 10px 26px; border-radius:4px;
+    box-shadow:0 6px 14px rgba(0,0,0,.35); transform:rotate(-2deg);
+    width:210px; margin:0 auto 10px;
+  }
+  .polaroid .ph{
+    width:100%; height:150px; background:repeating-linear-gradient(45deg,#eee,#eee 10px,#f7f7f7 10px,#f7f7f7 20px);
+    border:2px dashed #c9a7ff; border-radius:2px;
+    display:flex; align-items:center; justify-content:center; flex-direction:column;
+    color:#9a86b3; font-size:.75rem; text-align:center; overflow:hidden;
+  }
+  .polaroid .ph img{ width:100%; height:100%; object-fit:cover; }
+  .polaroid .cap{ font-family:'Playfair Display',serif; font-size:.85rem; margin-top:8px; color:#3a1c1c;}
+  .letterBox{
+    background:#fffdf6; color:#3a1c1c; border-radius:6px;
+    padding:22px 20px; text-align:left; font-family:'Playfair Display',serif;
+    max-width:360px; box-shadow:0 12px 40px rgba(0,0,0,.5);
+    border:1px solid #e6d6a8;
+  }
+  .letterBox .sig{ text-align:right; margin-top:14px; font-style:italic; }
+  #startOverlay .charCard.selected{ border-color: var(--gold); }
+  #confettiWrap{ position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:50;}
+  .confetti{ position:absolute; top:-20px; font-size:1.4rem; animation:fall linear forwards; }
+  @keyframes fall{
+    to{ transform:translateY(110vh) rotate(360deg); opacity:.9; }
+  }
+  footer.tip{ font-size:.65rem; opacity:.55; margin-top:10px; text-align:center; padding-bottom:6px;}
+</style>
+</head>
+<body>
+<div id="app">
+  <h1 class="title">Will You Be My Godmother? 💍</h1>
+  <div class="subtitle">A tiny adventure before June 19, 2027</div>
+
+  <div id="canvasWrap">
+    <canvas id="game" width="480" height="360"></canvas>
+    <div id="hud">
+      <div class="pill" id="hudLevel">Level 1</div>
+      <div class="pill" id="hudPhotos">📷 0/4</div>
+    </div>
+
+    <!-- CHARACTER SELECT -->
+    <div class="overlay" id="startOverlay">
+      <div class="card">
+        <h2>Choose your bridesmaid ✨</h2>
+        <p>Pick who you are, then help her reach Beyoncé's Hall of Fame!</p>
+        <div class="charRow" id="charRow"></div>
+        <div style="margin-top:16px;">
+          <button class="goldBtn" id="startBtn" disabled>Let's Go!</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- LEVEL INTRO -->
+    <div class="overlay hidden" id="introOverlay">
+      <div class="card">
+        <h2 id="introTitle">Level 1</h2>
+        <p id="introText"></p>
+        <button class="goldBtn" id="introBtn">Play</button>
+      </div>
+    </div>
+
+    <!-- PHOTO MODAL -->
+    <div class="overlay hidden" id="photoOverlay">
+      <div class="polaroid">
+        <div class="ph" id="photoPh">📷<br>Add photo here</div>
+        <div class="cap" id="photoCap">A sweet memory</div>
+      </div>
+      <button class="goldBtn" id="photoBtn">Keep Going 💕</button>
+    </div>
+
+    <!-- LEVEL COMPLETE -->
+    <div class="overlay hidden" id="completeOverlay">
+      <div class="card">
+        <h2>Level Complete! 🎉</h2>
+        <p id="completeText"></p>
+        <button class="goldBtn" id="completeBtn">Continue</button>
+      </div>
+    </div>
+
+    <!-- THE PROPOSAL LETTER -->
+    <div class="overlay hidden" id="letterOverlay">
+      <div class="letterBox">
+        <p>My dearest <b id="letterName">friend</b>,</p>
+        <p>Before I walk down the aisle, there's no one I'd rather have by my side.</p>
+        <p>Will you be my <b>godmother</b> on our wedding day —<br><b>June 19th, 2027</b>?</p>
+        <p class="sig">With all my love,<br>Your Beyoncé 👰🏽‍♀️💍</p>
+      </div>
+      <button class="goldBtn" id="yesBtn">Yes! I'd love to 💍</button>
+    </div>
+
+    <!-- FINALE -->
+    <div class="overlay hidden" id="finaleOverlay">
+      <div class="card">
+        <h2>She said YES! 🥂</h2>
+        <p id="finaleText"></p>
+        <button class="goldBtn" id="restartBtn">Play Again</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="controls">
+    <div class="dpad">
+      <button class="btn" id="btnLeft">◀</button>
+      <button class="btn" id="btnRight">▶</button>
+    </div>
+    <button class="btn jump" id="btnJump">⬆</button>
+  </div>
+  <footer class="tip">Tip: use the buttons below, or arrow keys + space on a computer.</footer>
+</div>
+
+<div id="confettiWrap"></div>
+
+<script>
+/* =========================================================
+   EASY CUSTOMIZATION
+   Paste image URLs below to replace the "Add photo here"
+   placeholders once you have them. Leave "" to keep the
+   placeholder look. You can also change the wedding date
+   and bride's display name here.
+========================================================= */
+const WEDDING_DATE = "June 19th, 2027";
+const BRIDE_SIGNOFF = "Your Beyoncé";
+
+const PHOTO_URLS = {
+  p1:"", p2:"", p3:"", p4:"",   // Level 1 memories
+  p5:"", p6:"", p7:"", p8:""    // Level 2 memories
+};
+const PHOTO_CAPTIONS = {
+  p1:"The day we met", p2:"Girls' trip 💕", p3:"Late night laughs",
+  p4:"Ride or die", p5:"Brunch besties", p6:"That one crazy night",
+  p7:"Always in my corner", p8:"Best of friends"
+};
+/* ========================================================= */
+
+const CHARACTERS = [
+  { id:'nicole',   name:'Nicole',   dress:'#ff6fa8', dress2:'#e0508a', hair:'#3b2314', skin:'#e8b48a' },
+  { id:'andreia',  name:'Andreia',  dress:'#5bc8ff', dress2:'#3aa8e0', hair:'#161616', skin:'#c98a5b' },
+  { id:'carolina', name:'Carolina', dress:'#c9a7ff', dress2:'#a67ee0', hair:'#7a4a20', skin:'#f0c9a0' }
+];
+
+let chosen = null;
+
+/* ---------- CHARACTER SELECT UI ---------- */
+const charRow = document.getElementById('charRow');
+CHARACTERS.forEach(c=>{
+  const div = document.createElement('div');
+  div.className = 'charCard';
+  div.dataset.id = c.id;
+  const cv = document.createElement('canvas');
+  cv.width = 100; cv.height = 90;
+  div.appendChild(cv);
+  const span = document.createElement('span');
+  span.textContent = c.name;
+  div.appendChild(span);
+  charRow.appendChild(div);
+  drawLadyPortrait(cv.getContext('2d'), c);
+  div.addEventListener('click', ()=>{
+    document.querySelectorAll('.charCard').forEach(x=>x.classList.remove('selected'));
+    div.classList.add('selected');
+    chosen = c;
+    document.getElementById('startBtn').disabled = false;
+  });
+});
+
+function drawLadyPortrait(ctx, c){
+  ctx.clearRect(0,0,100,90);
+  drawLady(ctx, 50, 20, c, 'right', 0, false);
+}
+
+document.getElementById('startBtn').addEventListener('click', ()=>{
+  if(!chosen) return;
+  document.getElementById('startOverlay').classList.add('hidden');
+  document.getElementById('letterName').textContent = chosen.name;
+  startLevel(0);
+});
+
+/* ---------- CANVAS / GAME SETUP ---------- */
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const GROUND_Y = 300;
+const GRAVITY = 0.6;
+const JUMP_V = -12.5;
+const MOVE_SPEED = 3.4;
+
+function drawLady(ctx, x, y, c, facing, frame, walking){
+  // x,y = feet position (bottom center)
+  ctx.save();
+  ctx.translate(x,y);
+  const step = walking ? Math.sin(frame/5)*6 : 0;
+  // legs
+  ctx.strokeStyle = c.skin; ctx.lineWidth = 5; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(-6,-2); ctx.lineTo(-6+step, 12); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(6,-2); ctx.lineTo(6-step, 12); ctx.stroke();
+  // dress (trapezoid)
+  ctx.fillStyle = c.dress;
+  ctx.beginPath();
+  ctx.moveTo(-9,-2); ctx.lineTo(9,-2); ctx.lineTo(15,-30); ctx.lineTo(-15,-30);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = c.dress2;
+  ctx.beginPath();
+  ctx.moveTo(-15,-30); ctx.lineTo(15,-30); ctx.lineTo(11,-38); ctx.lineTo(-11,-38);
+  ctx.closePath(); ctx.fill();
+  // arms
+  ctx.strokeStyle = c.skin; ctx.lineWidth = 4;
+  const armSwing = walking ? Math.sin(frame/5)*8 : 2;
+  ctx.beginPath(); ctx.moveTo(-13,-32); ctx.lineTo(-18, -22+armSwing); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(13,-32); ctx.lineTo(18, -22-armSwing); ctx.stroke();
+  // head
+  ctx.fillStyle = c.skin;
+  ctx.beginPath(); ctx.arc(0,-46,9,0,Math.PI*2); ctx.fill();
+  // hair
+  ctx.fillStyle = c.hair;
+  ctx.beginPath();
+  ctx.arc(0,-48,10,Math.PI*0.9,Math.PI*2.1);
+  ctx.fill();
+  ctx.fillRect(-10,-50,4,16);
+  ctx.fillRect(6,-50,4,16);
+  // face
+  ctx.fillStyle = '#3a1c1c';
+  const eyeX = facing==='right'? 2:-2;
+  ctx.beginPath(); ctx.arc(eyeX-2,-46,1,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(eyeX+3,-46,1,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#c9455f'; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.arc(eyeX,-43,2,0,Math.PI); ctx.stroke();
+  ctx.restore();
+}
+
+function drawBeyonce(ctx, x, y, glow){
+  ctx.save();
+  ctx.translate(x,y);
+  // sparkle aura
+  ctx.globalAlpha = 0.5 + Math.sin(glow/10)*0.2;
+  ctx.fillStyle = '#fff2c2';
+  ctx.beginPath(); ctx.arc(0,-30,42,0,Math.PI*2); ctx.fill();
+  ctx.globalAlpha = 1;
+  // dress
+  ctx.fillStyle = '#f7d774';
+  ctx.beginPath();
+  ctx.moveTo(-12,-2); ctx.lineTo(12,-2); ctx.lineTo(22,-34); ctx.lineTo(-22,-34);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#e0b93f';
+  ctx.beginPath();
+  ctx.moveTo(-22,-34); ctx.lineTo(22,-34); ctx.lineTo(15,-42); ctx.lineTo(-15,-42);
+  ctx.closePath(); ctx.fill();
+  // arms + ring hand raised
+  ctx.strokeStyle = '#8a5a34'; ctx.lineWidth = 5; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(-15,-36); ctx.lineTo(-24,-52); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(15,-36); ctx.lineTo(20,-20); ctx.stroke();
+  // legs
+  ctx.beginPath(); ctx.moveTo(-6,-2); ctx.lineTo(-6,14); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(6,-2); ctx.lineTo(6,14); ctx.stroke();
+  // head
+  ctx.fillStyle = '#8a5a34';
+  ctx.beginPath(); ctx.arc(0,-52,10,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1a1210';
+  ctx.beginPath(); ctx.arc(0,-58,11,Math.PI*0.9,Math.PI*2.1); ctx.fill();
+  ctx.fillRect(-11,-58,5,20); ctx.fillRect(6,-58,5,20);
+  // worried/stressed brows + small tear sparkle
+  ctx.strokeStyle='#1a1210'; ctx.lineWidth=1.4;
+  ctx.beginPath(); ctx.moveTo(-6,-56); ctx.lineTo(-2,-54); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(6,-56); ctx.lineTo(2,-54); ctx.stroke();
+  ctx.fillStyle='#3a1c1c';
+  ctx.beginPath(); ctx.arc(-3,-52,1,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(3,-52,1,0,Math.PI*2); ctx.fill();
+  // ring with shine
+  ctx.save();
+  ctx.translate(-24,-52);
+  ctx.fillStyle='#ffd700';
+  ctx.beginPath(); ctx.arc(0,0,3,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#eaf6ff';
+  ctx.beginPath(); ctx.moveTo(0,-8); ctx.lineTo(3,-3); ctx.lineTo(-3,-3); ctx.closePath(); ctx.fill();
+  const s = 2 + Math.sin(glow/4);
+  ctx.strokeStyle='#fff'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(-6-s,-8); ctx.lineTo(6+s,-8-s); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-2,-14-s); ctx.lineTo(2,-4); ctx.stroke();
+  ctx.restore();
+  ctx.restore();
+}
+
+/* ---------- LEVEL DEFINITIONS ---------- */
+function seg(x1,x2){ return {x:x1, y:GROUND_Y, w:x2-x1, h:60}; }
+
+const LEVELS = [
+  { // LEVEL 1
+    name:'Level 1 · The Invitation Begins',
+    intro:'Walk and jump your way through, collecting sweet memories along the way!',
+    bg:['#ffd6e8','#ffe9f2'],
+    width:1500,
+    platforms:[
+      seg(0,340), seg(460,760), seg(880,1500),
+      {x:560,y:220,w:100,h:16},
+      {x:1000,y:200,w:110,h:16},
+      {x:1200,y:250,w:90,h:16}
+    ],
+    photos:[ {x:200,y:GROUND_Y,key:'p1'}, {x:600,y:170,key:'p2'}, {x:1030,y:150,key:'p3'}, {x:1350,y:GROUND_Y,key:'p4'} ],
+    hearts:[ {x:120,y:GROUND_Y-10},{x:500,y:GROUND_Y-10},{x:950,y:GROUND_Y-10},{x:1400,y:GROUND_Y-10} ],
+    flagX:1460
+  },
+  { // LEVEL 2
+    name:'Level 2 · Best Friends Forever',
+    intro:'A few more jumps to go — you\\'re almost ready for the big reveal!',
+    bg:['#c9e7ff','#e8f6ff'],
+    width:1800,
+    platforms:[
+      seg(0,300), seg(420,640), seg(760,900), seg(1040,1800),
+      {x:300,y:230,w:100,h:16},
+      {x:660,y:190,w:90,h:16},
+      {x:900,y:230,w:100,h:16},
+      {x:1150,y:200,w:100,h:16},
+      {x:1400,y:240,w:110,h:16}
+    ],
+    photos:[ {x:160,y:GROUND_Y,key:'p5'}, {x:690,y:160,key:'p6'}, {x:1180,y:170,key:'p7'}, {x:1650,y:GROUND_Y,key:'p8'} ],
+    hearts:[ {x:340,y:GROUND_Y-10},{x:800,y:GROUND_Y-10},{x:1250,y:GROUND_Y-10},{x:1700,y:GROUND_Y-10} ],
+    flagX:1750
+  },
+  { // LEVEL 3 - HALL OF FAME
+    name:'Level 3 · Hall of Fame',
+    intro:'Walk the red carpet all the way to the end...',
+    bg:['#3a0d16','#6e1626'],
+    width:1300,
+    platforms:[ seg(0,1300) ],
+    photos:[],
+    hearts:[ {x:150,y:GROUND_Y-10},{x:350,y:GROUND_Y-10},{x:550,y:GROUND_Y-10},{x:750,y:GROUND_Y-10},{x:950,y:GROUND_Y-10} ],
+    flagX:1180,
+    isFinale:true
+  }
+];
+
+let levelIndex = 0;
+let level = null;
+let player, camX, keys, photosCollected, heartsCollected, frame, gameRunning, glow;
+
+function startLevel(i){
+  levelIndex = i;
+  level = LEVELS[i];
+  player = { x:40, y:GROUND_Y-1, w:26, h:48, vx:0, vy:0, grounded:true, facing:'right', checkX:40, checkY:GROUND_Y };
+  camX = 0; frame = 0; glow = 0;
+  photosCollected = level.photos.map(()=>false);
+  heartsCollected = level.hearts.map(()=>false);
+  gameRunning = false;
+
+  document.getElementById('hudLevel').textContent = level.name.split('·')[0].trim();
+  document.getElementById('hudPhotos').style.visibility = level.photos.length ? 'visible':'hidden';
+  document.getElementById('hudPhotos').textContent = '📷 0/' + level.photos.length;
+
+  document.getElementById('introTitle').textContent = level.name;
+  document.getElementById('introText').textContent = level.intro;
+  document.getElementById('introOverlay').classList.remove('hidden');
+}
+
+document.getElementById('introBtn').addEventListener('click', ()=>{
+  document.getElementById('introOverlay').classList.add('hidden');
+  gameRunning = true;
+  requestAnimationFrame(loop);
+});
+
+/* ---------- INPUT ---------- */
+keys = { left:false, right:false, jump:false };
+function bindHold(el, key){
+  el.addEventListener('touchstart', e=>{ e.preventDefault(); keys[key]=true; },{passive:false});
+  el.addEventListener('touchend', e=>{ e.preventDefault(); keys[key]=false; },{passive:false});
+  el.addEventListener('mousedown', ()=> keys[key]=true);
+  el.addEventListener('mouseup', ()=> keys[key]=false);
+  el.addEventListener('mouseleave', ()=> keys[key]=false);
+}
+bindHold(document.getElementById('btnLeft'),'left');
+bindHold(document.getElementById('btnRight'),'right');
+bindHold(document.getElementById('btnJump'),'jump');
+
+window.addEventListener('keydown', e=>{
+  if(e.code==='ArrowLeft') keys.left=true;
+  if(e.code==='ArrowRight') keys.right=true;
+  if(e.code==='Space'||e.code==='ArrowUp') keys.jump=true;
+});
+window.addEventListener('keyup', e=>{
+  if(e.code==='ArrowLeft') keys.left=false;
+  if(e.code==='ArrowRight') keys.right=false;
+  if(e.code==='Space'||e.code==='ArrowUp') keys.jump=false;
+});
+
+/* ---------- GAME LOOP ---------- */
+function loop(){
+  if(!gameRunning) return;
+  frame++; glow++;
+  update();
+  render();
+  requestAnimationFrame(loop);
+}
+
+function update(){
+  const moving = keys.left || keys.right;
+  if(keys.left){ player.vx = -MOVE_SPEED; player.facing='left'; }
+  else if(keys.right){ player.vx = MOVE_SPEED; player.facing='right'; }
+  else player.vx = 0;
+
+  if(keys.jump && player.grounded){
+    player.vy = JUMP_V;
+    player.grounded = false;
+  }
+
+  player.vy += GRAVITY;
+  if(player.vy > 15) player.vy = 15;
+
+  player.x += player.vx;
+  player.x = Math.max(0, Math.min(level.width - player.w, player.x));
+
+  const prevBottom = player.y;
+  player.y += player.vy;
+
+  player.grounded = false;
+  for(const p of level.platforms){
+    const feetNow = player.y;
+    const feetPrev = prevBottom;
+    const withinX = player.x + player.w > p.x && player.x < p.x + p.w;
+    if(withinX && player.vy >= 0 && feetPrev <= p.y && feetNow >= p.y){
+      player.y = p.y;
+      player.vy = 0;
+      player.grounded = true;
+      player.checkX = player.x;
+      player.checkY = p.y;
+    }
+  }
+
+  if(player.y > H + 150){
+    player.x = player.checkX;
+    player.y = player.checkY;
+    player.vy = 0;
+  }
+
+  // photo pickups
+  level.photos.forEach((ph,i)=>{
+    if(photosCollected[i]) return;
+    const dx = (player.x+player.w/2) - ph.x;
+    const dy = (player.y - 20) - ph.y;
+    if(Math.abs(dx) < 26 && Math.abs(dy) < 34){
+      photosCollected[i] = true;
+      openPhoto(ph.key);
+    }
+  });
+
+  // hearts pickups
+  level.hearts.forEach((h,i)=>{
+    if(heartsCollected[i]) return;
+    const dx = (player.x+player.w/2) - h.x;
+    const dy = (player.y - 10) - h.y;
+    if(Math.abs(dx) < 20 && Math.abs(dy) < 20) heartsCollected[i] = true;
+  });
+
+  const cnt = photosCollected.filter(Boolean).length;
+  document.getElementById('hudPhotos').textContent = '📷 ' + cnt + '/' + level.photos.length;
+
+  // camera
+  camX = Math.max(0, Math.min(level.width - W, player.x - W/2));
+
+  // finale trigger
+  if(level.isFinale){
+    if(player.x + player.w/2 >= level.flagX - 20){
+      gameRunning = false;
+      showLetter();
+      return;
+    }
+  } else if(player.x + player.w >= level.flagX){
+    gameRunning = false;
+    showComplete();
+    return;
+  }
+}
+
+function openPhoto(key){
+  gameRunning = false;
+  const url = PHOTO_URLS[key];
+  const ph = document.getElementById('photoPh');
+  if(url){
+    ph.innerHTML = '<img src="'+url+'" alt="memory">';
+  } else {
+    ph.innerHTML = '📷<br>Add photo here';
+  }
+  document.getElementById('photoCap').textContent = PHOTO_CAPTIONS[key] || 'A sweet memory';
+  document.getElementById('photoOverlay').classList.remove('hidden');
+}
+document.getElementById('photoBtn').addEventListener('click', ()=>{
+  document.getElementById('photoOverlay').classList.add('hidden');
+  gameRunning = true;
+  requestAnimationFrame(loop);
+});
+
+function showComplete(){
+  document.getElementById('completeText').textContent =
+    'Great job, ' + chosen.name + '! On to the next step...';
+  document.getElementById('completeOverlay').classList.remove('hidden');
+}
+document.getElementById('completeBtn').addEventListener('click', ()=>{
+  document.getElementById('completeOverlay').classList.add('hidden');
+  startLevel(levelIndex+1);
+});
+
+function showLetter(){
+  document.getElementById('letterOverlay').classList.remove('hidden');
+}
+document.getElementById('yesBtn').addEventListener('click', ()=>{
+  document.getElementById('letterOverlay').classList.add('hidden');
+  document.getElementById('finaleText').textContent =
+    chosen.name + ' is officially a godmother! See you on ' + WEDDING_DATE + ' 💐';
+  document.getElementById('finaleOverlay').classList.remove('hidden');
+  launchConfetti();
+});
+document.getElementById('restartBtn').addEventListener('click', ()=>{
+  document.getElementById('finaleOverlay').classList.add('hidden');
+  document.getElementById('startOverlay').classList.remove('hidden');
+  document.querySelectorAll('.charCard').forEach(x=>x.classList.remove('selected'));
+  document.getElementById('startBtn').disabled = true;
+  chosen = null;
+});
+
+function launchConfetti(){
+  const wrap = document.getElementById('confettiWrap');
+  const bits = ['💐','🎉','💍','✨','🥂','👑'];
+  for(let i=0;i<50;i++){
+    setTimeout(()=>{
+      const el = document.createElement('div');
+      el.className = 'confetti';
+      el.textContent = bits[Math.floor(Math.random()*bits.length)];
+      el.style.left = Math.random()*100 + 'vw';
+      el.style.animationDuration = (2.5 + Math.random()*2) + 's';
+      el.style.fontSize = (1 + Math.random()*1.2) + 'rem';
+      wrap.appendChild(el);
+      setTimeout(()=>el.remove(), 5000);
+    }, i*80);
+  }
+}
+
+/* ---------- RENDER ---------- */
+function render(){
+  // background
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0, level.bg[0]);
+  grad.addColorStop(1, level.bg[1]);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,W,H);
+
+  if(level.isFinale){
+    renderRedCarpetBG();
+  } else {
+    renderCloudsBG();
+  }
+
+  ctx.save();
+  ctx.translate(-camX,0);
+
+  // platforms
+  level.platforms.forEach(p=>{
+    if(level.isFinale){
+      ctx.fillStyle = '#7a0f22';
+      ctx.fillRect(p.x,p.y,p.w,H-p.y);
+      ctx.fillStyle = '#c81c3f';
+      ctx.fillRect(p.x,p.y,p.w,10);
+      // gold trim
+      ctx.fillStyle = 'rgba(212,175,55,.6)';
+      for(let gx=p.x; gx<p.x+p.w; gx+=40) ctx.fillRect(gx,p.y-4,20,4);
+    } else {
+      ctx.fillStyle = '#8bd67a';
+      ctx.fillRect(p.x,p.y,p.w,10);
+      ctx.fillStyle = '#c99a5b';
+      ctx.fillRect(p.x,p.y+10,p.w,H-p.y-10);
+    }
+  });
+
+  // hearts
+  level.hearts.forEach((h,i)=>{
+    if(heartsCollected[i]) return;
+    ctx.font = '20px serif';
+    ctx.fillText(level.isFinale ? '✨' : '💗', h.x-10, h.y - Math.sin(frame/10+i)*4);
+  });
+
+  // photos
+  level.photos.forEach((ph,i)=>{
+    if(photosCollected[i]) return;
+    ctx.save();
+    ctx.translate(ph.x, ph.y - 20);
+    ctx.rotate(Math.sin(frame/20)*0.05);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(-14,-16,28,32);
+    ctx.strokeStyle = '#c9a7ff';
+    ctx.strokeRect(-14,-16,28,32);
+    ctx.font = '16px serif';
+    ctx.fillStyle = '#c9a7ff';
+    ctx.fillText('📷', -8, -2);
+    ctx.restore();
+  });
+
+  // flag / Beyonce
+  if(level.isFinale){
+    drawBeyonce(ctx, level.flagX, GROUND_Y, glow);
+  } else {
+    ctx.save();
+    ctx.translate(level.flagX, GROUND_Y);
+    ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-60); ctx.stroke();
+    ctx.fillStyle = '#ff6fa8';
+    ctx.beginPath(); ctx.moveTo(0,-60); ctx.lineTo(28,-50); ctx.lineTo(0,-40); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  // player
+  drawLady(ctx, player.x+player.w/2, player.y, chosen, player.facing, frame, player.vx!==0);
+
+  ctx.restore();
+}
+
+function renderCloudsBG(){
+  ctx.fillStyle = 'rgba(255,255,255,.7)';
+  for(let i=0;i<4;i++){
+    const cx = ((i*180) - (camX*0.3) % 720 + 720) % (W+200) - 100;
+    const cy = 40 + (i%2)*30;
+    ctx.beginPath();
+    ctx.arc(cx,cy,20,0,Math.PI*2);
+    ctx.arc(cx+22,cy+6,16,0,Math.PI*2);
+    ctx.arc(cx-20,cy+8,14,0,Math.PI*2);
+    ctx.fill();
+  }
+}
+function renderRedCarpetBG(){
+  // spotlights
+  for(let i=0;i<3;i++){
+    const sx = ((i*220) - (camX*0.4) % 660 + 660) % (W+200);
+    const grd = ctx.createRadialGradient(sx,0,10,sx,0,180);
+    grd.addColorStop(0,'rgba(255,244,200,.25)');
+    grd.addColorStop(1,'rgba(255,244,200,0)');
+    ctx.fillStyle = grd;
+    ctx.beginPath(); ctx.moveTo(sx,0); ctx.arc(sx,0,180,0,Math.PI); ctx.fill();
+  }
+}
+
+/* initial idle draw */
+level = LEVELS[0];
+chosen = CHARACTERS[0];
+player = { x:40, y:GROUND_Y-1, w:26, h:48, vx:0, vy:0, grounded:true, facing:'right' };
+camX=0; frame=0; glow=0;
+photosCollected = level.photos.map(()=>false);
+heartsCollected = level.hearts.map(()=>false);
+render();
+</script>
+</body>
+</html>
